@@ -6,6 +6,8 @@ import { prisma } from "../prisma/db";
 import { createOAuthClient, getAuthUrl } from "./auth";
 import { getCourses, getCourseWorks, getSubmissions } from "./classroom";
 import type { ApiResponse, HealthCheck, User } from "shared";
+import path from "path";
+import fs from "fs";
 
 // Simple in-memory token store (ganti dengan database/session untuk production)
 const tokenStore = new Map<string, { access_token: string; refresh_token?: string }>();
@@ -23,24 +25,27 @@ const isBrowserRequest = (request: Request): boolean => {
 };
 
 const app = new Elysia()
-  .use(cors({ origin: ["http://localhost:5173", "http://localhost:5174"], credentials: true }))
+.use(cors({ origin: [process.env.FRONTEND_URL ?? "", process.env.TEST_URL ?? ""] }))
   .use(swagger())
   .use(cookie())
   .onRequest(({ request, set }) => {
-    const origin = request.headers.get("origin");
-    const frontendUrl = process.env.FRONTEND_URL ?? "";
+    const url = new URL(request.url);
+    // HANYA jalankan logika jika path dimulai dengan /users
+    if (url.pathname.startsWith("/users")) {
+      const origin = request.headers.get("origin");
+      const frontendUrl = process.env.FRONTEND_URL ?? "";
 
-    // Jika request dari FRONTEND_URL → langsung izinkan
-    if (origin && origin === frontendUrl) return;
+      // Jika request dari FRONTEND_URL → langsung izinkan
+      if (origin && origin === frontendUrl) return;
 
-    // Jika akses dari browser langsung → wajib ada ?key=
-    if (isBrowserRequest(request)) {
-      const url = new URL(request.url);
-      const key = url.searchParams.get("key");
+      // Jika akses dari browser langsung → wajib ada ?key=
+      if (isBrowserRequest(request)) {
+        const key = url.searchParams.get("key");
 
-      if (!key || key !== process.env.API_KEY) {
-        set.status = 401;
-        return { message: "Unauthorized: missing or invalid key" };
+        if (!key || key !== process.env.API_KEY) {
+          set.status = 401;
+          return { message: "Unauthorized: missing or invalid key" };
+        }
       }
     }
   })
@@ -94,7 +99,7 @@ const app = new Elysia()
     session.value = sessionId;
     session.maxAge = 60 * 60 * 24; // 1 hari
 
-    // Redirect ke frontend
+    // !!! ubah url frontend jadi dynamic ambil dari env (lakukan ke semua file di apps/backend), contoh:
     return redirect(`${process.env.FRONTEND_URL}/classroom`);
   })
 
@@ -163,6 +168,18 @@ const app = new Elysia()
     return { data: result, message: "Course submissions retrieved" };
   })
 
+  .get("/debug-prisma", () => {
+    const generatedPath = path.resolve(__dirname, "../src/generated/prisma/client");
+    const exists = fs.existsSync(generatedPath);
+
+    return {
+      path: generatedPath,
+      exists: exists,
+      files: exists ? fs.readdirSync(generatedPath) : []
+    };
+  });
+
+// !!! buat console log yang tidak tampil di production & pakai nilai dari ENV
 if (process.env.NODE_ENV != "production") {
   app.listen(3000);
   console.log(`🦊 Backend → http://localhost:3000`);
