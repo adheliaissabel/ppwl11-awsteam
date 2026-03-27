@@ -27,10 +27,14 @@ const isBrowserRequest = (request: Request): boolean => {
 const app = new Elysia()
   .use(
     cors({
-      origin: [
-        (process.env.FRONTEND_URL ?? "").replace(/\/$/, ""),
-        (process.env.TEST_URL ?? "").replace(/\/$/, ""),
-      ],
+      origin: (request: Request) => {
+        const requestOrigin = request.headers.get("origin") ?? "";
+        const frontendUrl = (process.env.FRONTEND_URL ?? "").replace(/\/$/, "");
+        if (requestOrigin === frontendUrl) return true;
+        // Jika TEST_URL adalah '*', pantulkan origin pengirim ketimbang mengirimkan literal '*'
+        if (process.env.TEST_URL === "*") return true;
+        return false;
+      },
       credentials: true,
     }),
   )
@@ -111,6 +115,9 @@ const app = new Elysia()
       });
 
       if (!session) return;
+
+      // Sisipkan header manual untuk mengecoh bug kehilangan cookie saat redirect di Vercel Node
+      set.headers["Set-Cookie"] = `session=${sessionId}; Max-Age=86400; Path=/; HttpOnly; Secure; SameSite=None`;
 
       // Set cookie session
       session.value = sessionId;
