@@ -25,7 +25,7 @@ const isBrowserRequest = (request: Request): boolean => {
 };
 
 const app = new Elysia()
-.use(cors({ origin: [process.env.FRONTEND_URL ?? "", process.env.TEST_URL ?? ""] }))
+.use(cors({ origin: [process.env.FRONTEND_URL ?? "", process.env.TEST_URL ?? ""], credentials: true }))
   .use(swagger())
   .use(cookie())
   .onRequest(({ request, set }) => {
