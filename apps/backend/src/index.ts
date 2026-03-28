@@ -107,15 +107,21 @@ const app = new Elysia()
 
   // Cek status login
   .get("/auth/me", ({ cookie: { session } }) => {
-    const sessionId = session?.value as string;
-    console.log("Current Session ID from Cookie:", sessionId);
-    console.log("Is Session ID in Map?", tokenStore.has(sessionId));
-    console.log("Total Sessions in Map:", tokenStore.size);
-    if (!sessionId || !tokenStore.has(sessionId)) {
-      return { loggedIn: false };
-    }
-    return { loggedIn: true, sessionId };
-  })
+    const sessionId = session?.value; // Ambil nilai asli tanpa casting dulu
+  
+    console.log("--- DEBUG SESSION ---");
+    console.log("Raw Session Object:", session);
+    console.log("Session ID dari Browser:", sessionId);
+    console.log("Isi Map saat ini:", Array.from(tokenStore.keys())); 
+  
+  if (!sessionId || !tokenStore.has(sessionId)) {
+    console.log("Hasil: TIDAK LOGIN (Mismatch atau Kosong)");
+    return { loggedIn: false };
+  }
+  
+  console.log("Hasil: BERHASIL LOGIN");
+  return { loggedIn: true, sessionId };
+})
 
   // Logout
   .post("/auth/logout", ({ cookie: { session } }) => {
