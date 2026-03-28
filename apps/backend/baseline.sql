@@ -1,14 +1,18 @@
 -- CreateTable
-CREATE TABLE IF NOT EXISTS "User" ( 
+CREATE TABLE "User" (
     "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
     "email" TEXT NOT NULL,
-    "name" TEXT 
+    "name" TEXT
 );
-CREATE TABLE IF NOT EXISTS "Session" (
+
+-- CreateTable
+CREATE TABLE "Session" (
     "id" TEXT NOT NULL PRIMARY KEY,
     "accessToken" TEXT NOT NULL,
     "refreshToken" TEXT,
     "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
+
 -- CreateIndex
-CREATE UNIQUE INDEX IF NOT EXISTS "User_email_key" ON "User"("email");
+CREATE UNIQUE INDEX "User_email_key" ON "User"("email");
+
