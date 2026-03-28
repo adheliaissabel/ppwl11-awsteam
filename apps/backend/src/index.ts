@@ -99,10 +99,10 @@ const app = new Elysia()
     session.secure = true;    // WAJIB: Cookie hanya dikirim lewat HTTPS
     session.sameSite = "none"; // WAJIB: Agar cookie bisa dikirim antar domain berbeda
 
-      // Redirect ke frontend
-      // !!! ubah url frontend jadi env var (lakukan ke semua file di apps/backend), contoh:
-      return redirect(`${process.env.FRONTEND_URL}/classroom`);
-    },
+    // Redirect ke frontend
+    // !!! ubah url frontend jadi env var (lakukan ke semua file di apps/backend), contoh:
+    return redirect(`${process.env.FRONTEND_URL}/classroom`);
+  },
   )
 
   // Cek status login
