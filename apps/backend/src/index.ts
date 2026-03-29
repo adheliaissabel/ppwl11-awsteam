@@ -14,34 +14,18 @@ const tokenStore = new Map<
 >();
 
 const app = new Elysia()
-<<<<<<< HEAD
-  // !!! modifikasi CORS agar dapat di akses oleh web frontend deployment https
-=======
->>>>>>> 230e25e (feat: implement Vercel deployment support, secure cookie configuration, and API key authentication for backend and frontend services.)
   .use(
     cors({
       origin: process.env.FRONTEND_URL || "http://localhost:5173",
       credentials: true, // WAJIB untuk /auth/me yang mengecek session/cookie
-<<<<<<< HEAD
-      allowedHeaders: ["Content-Type", "Authorization"]
-    })
-=======
       allowedHeaders: ["Content-Type", "Authorization"],
     }),
->>>>>>> 230e25e (feat: implement Vercel deployment support, secure cookie configuration, and API key authentication for backend and frontend services.)
   )
   .use(swagger())
   .use(cookie())
   .onRequest(({ request, set }) => {
     const url = new URL(request.url);
 
-<<<<<<< HEAD
-  // !!! tambahkan onRequest ini untuk beri pengamanan API_KEY data `/users`
-  .onRequest(({ request, set }) => {
-    const url = new URL(request.url);
-
-=======
->>>>>>> 230e25e (feat: implement Vercel deployment support, secure cookie configuration, and API key authentication for backend and frontend services.)
     if (url.pathname.startsWith("/users")) {
       const origin = request.headers.get("origin");
       const frontendUrl = process.env.FRONTEND_URL ?? "http://localhost:5173";
@@ -60,10 +44,6 @@ const app = new Elysia()
       }
     }
   })
-<<<<<<< HEAD
-
-=======
->>>>>>> 230e25e (feat: implement Vercel deployment support, secure cookie configuration, and API key authentication for backend and frontend services.)
   // Health check
   .get(
     "/",
@@ -114,22 +94,6 @@ const app = new Elysia()
       });
       if (!session) return;
 
-<<<<<<< HEAD
-    // Set cookie session
-    session.value = sessionId;
-    session.maxAge = 60 * 60 * 24; // 1 hari
-    session.path = "/";
-
-    // !!! Tambahkan KONFIGURASI PRODUCTION
-    session.httpOnly = true;
-    session.secure = true;    // WAJIB: Cookie hanya dikirim lewat HTTPS
-    session.sameSite = "none"; // WAJIB: Agar cookie bisa dikirim antar domain berbeda
-
-    // Redirect ke frontend
-    // !!! ubah url frontend jadi env var (lakukan ke semua file di apps/backend), contoh:
-    return redirect(`${process.env.FRONTEND_URL}/classroom`);
-  })
-=======
       // Set cookie session
       session.value = sessionId;
       session.maxAge = 60 * 60 * 24; // 1 hari
@@ -144,7 +108,6 @@ const app = new Elysia()
       return redirect(`${process.env.FRONTEND_URL}/classroom`);
     },
   )
->>>>>>> 230e25e (feat: implement Vercel deployment support, secure cookie configuration, and API key authentication for backend and frontend services.)
 
   // Cek status login
   .get("/auth/me", ({ cookie: { session } }) => {
@@ -216,24 +179,6 @@ const app = new Elysia()
     },
   );
 
-<<<<<<< HEAD
-// !!! hapus console log "yang terbuka" ini:
-// console.log(`🦊 Backend → http://localhost:${app.server?.port}`);
-// console.log(`📖 Swagger → http://localhost:${app.server?.port}/swagger`);
-
-// !!! tambahkan console log yang tidak tampil di production & pakai nilai dari ENV
-if (process.env.NODE_ENV != "production") {
-  app.listen(3000);
-  console.log(`🦊 Backend → http://localhost:3000`);
-  console.log(`🦊 FRONTEND_URL → ${process.env.FRONTEND_URL}`); // pembeda .env.development & .env.production
-  console.log(`🦊 DATABASE_URL: ${process.env.DATABASE_URL}`); // pembeda development & production
-  console.log(`🦊 GOOGLE_REDIRECT_URI: ${process.env.GOOGLE_REDIRECT_URI}`); // dari file .env
-}
-
-// !!! tambahkan export app agar Elysia dapat dibaca Vercel serverless.
-export default app;
-export type App = typeof app;
-=======
 // ! buat console log yang tidak tampil di production & pakai nilai dari ENV
 if (process.env.NODE_ENV != "production") {
   app.listen(3000);
@@ -245,4 +190,4 @@ if (process.env.NODE_ENV != "production") {
 
 // tambahkan export app agar Elysia dapat dibaca Vercel serverless.
 export default app;
->>>>>>> 230e25e (feat: implement Vercel deployment support, secure cookie configuration, and API key authentication for backend and frontend services.)
+export type App = typeof app;
