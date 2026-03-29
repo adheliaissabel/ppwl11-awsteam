@@ -31,6 +31,10 @@ export default defineConfig(({ mode }) => {
     server: {
       port: Number(env.VITE_PORT) || 5173,
       strictPort: true,
+<<<<<<< HEAD
+=======
+      // proxy agar tiap fetch("/api"), yang dipanggil backend url
+>>>>>>> 230e25e (feat: implement Vercel deployment support, secure cookie configuration, and API key authentication for backend and frontend services.)
       proxy: {
         "/api": {
           target: env.VITE_BACKEND_URL || "http://localhost:3000",
@@ -39,4 +43,8 @@ export default defineConfig(({ mode }) => {
       }
     }
   }
+<<<<<<< HEAD
 })
+=======
+})
+>>>>>>> 230e25e (feat: implement Vercel deployment support, secure cookie configuration, and API key authentication for backend and frontend services.)

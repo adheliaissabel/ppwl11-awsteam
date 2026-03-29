@@ -1,9 +1,8 @@
-// apps/frontend/src/main.tsx
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
 
-// Routing sederhana berdasarkan path
+// Routing sederhana berdasarkan path ok change
 const path = window.location.pathname
 
 let App

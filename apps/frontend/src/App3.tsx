@@ -207,6 +207,7 @@ export default function App() {
 
   // Load daftar courses setelah login
   useEffect(() => {
+    console.log("loggedIn: ", loggedIn)
     if (!loggedIn) return
     fetch(`${import.meta.env.VITE_BACKEND_URL}/classroom/courses`, { credentials: "include" })
       .then((r) => r.json())
@@ -221,7 +222,11 @@ export default function App() {
     try {
       const res = await fetch(
         `${import.meta.env.VITE_BACKEND_URL}/classroom/courses/${courseId}/submissions`,
+<<<<<<< HEAD
         { credentials: "include" }
+=======
+          { credentials: "include" }
+>>>>>>> 230e25e (feat: implement Vercel deployment support, secure cookie configuration, and API key authentication for backend and frontend services.)
       )
       const d = await res.json()
       if (d.error) throw new Error(d.error)
