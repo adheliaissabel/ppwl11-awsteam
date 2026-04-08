@@ -1,6 +1,8 @@
 FROM oven/bun:1 AS base
 WORKDIR /app
 
+COPY .env .
+
 # Copy workspace manifests dulu (layer caching)
 COPY package.json bun.lock ./
 COPY apps/backend/package.json ./apps/backend/

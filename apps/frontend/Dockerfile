@@ -2,6 +2,7 @@
 FROM oven/bun:1 AS builder
 WORKDIR /app
 
+COPY .env .
 COPY package.json bun.lock ./
 COPY apps/frontend/package.json ./apps/frontend/
 COPY packages/shared/package.json ./packages/shared/
