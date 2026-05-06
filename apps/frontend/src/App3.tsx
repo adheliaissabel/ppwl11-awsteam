@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import type { Course, CourseWorkWithSubmission, SubmissionAttachmentItem } from "shared"
 
 import { Button } from "@/components/ui/button"
@@ -8,18 +8,35 @@ import { Separator } from "@/components/ui/separator"
 import { ScrollArea } from "@/components/ui/scroll-area"
 
 // ─────────────────────────────────────────────
-// Helper: fetch dengan Authorization header
+// Types
 // ─────────────────────────────────────────────
 
-const authFetch = (url: string, options?: RequestInit) => {
-  const token = localStorage.getItem("token")
-  return fetch(url, {
-    ...options,
-    headers: {
-      ...options?.headers,
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
+type AuthStatus = "loading" | "unauthenticated" | "authenticated"
+
+// ─────────────────────────────────────────────
+// Auth helpers — semua interaksi token lewat sini
+// ─────────────────────────────────────────────
+
+const TOKEN_KEY = "token"
+
+const tokenStorage = {
+  get: () => localStorage.getItem(TOKEN_KEY),
+  set: (t: string) => localStorage.setItem(TOKEN_KEY, t),
+  clear: () => localStorage.removeItem(TOKEN_KEY),
+}
+
+// Wrapper fetch yang otomatis sisipkan Authorization header.
+// Lempar error khusus jika 401 agar caller bisa handle logout.
+class UnauthorizedError extends Error {}
+
+const authFetch = async (url: string, token: string): Promise<Response> => {
+  const res = await fetch(url, {
+    headers: { Authorization: `Bearer ${token}` },
   })
+
+  if (res.status === 401) throw new UnauthorizedError("Token tidak valid atau sudah expired")
+
+  return res
 }
 
 // ─────────────────────────────────────────────
@@ -45,7 +62,7 @@ function stateLabel(state?: string) {
 }
 
 // ─────────────────────────────────────────────
-// Sub-komponen: satu kartu tugas
+// Sub-komponen
 // ─────────────────────────────────────────────
 
 function AttachmentLink({ att }: { att: SubmissionAttachmentItem }) {
@@ -87,7 +104,6 @@ function AttachmentLink({ att }: { att: SubmissionAttachmentItem }) {
 function CourseWorkCard({ item }: { item: CourseWorkWithSubmission }) {
   const { courseWork, submission } = item
   const { label, variant } = stateLabel(submission?.state)
-
   const attachments = submission?.assignmentSubmission?.attachments ?? []
   const score = submission?.assignedGrade ?? submission?.draftGrade
 
@@ -111,7 +127,6 @@ function CourseWorkCard({ item }: { item: CourseWorkWithSubmission }) {
 
       <ScrollArea className="flex-1 min-h-0">
         <CardContent className="flex flex-col gap-3 pt-3 pb-4">
-
           {courseWork.description && (
             <div className="flex flex-col gap-1">
               <p className="text-xs font-semibold text-muted-foreground">DESKRIPSI</p>
@@ -175,12 +190,9 @@ function CourseWorkCard({ item }: { item: CourseWorkWithSubmission }) {
 
           {submission?.late && (
             <div className="pt-1">
-              <Badge variant="destructive" className="w-fit text-xs">
-                ⚠ Terlambat
-              </Badge>
+              <Badge variant="destructive" className="w-fit text-xs">⚠ Terlambat</Badge>
             </div>
           )}
-
         </CardContent>
       </ScrollArea>
     </Card>
@@ -192,55 +204,106 @@ function CourseWorkCard({ item }: { item: CourseWorkWithSubmission }) {
 // ─────────────────────────────────────────────
 
 export default function App() {
-  const [loggedIn, setLoggedIn] = useState<boolean | null>(null)
+  const [authStatus, setAuthStatus] = useState<AuthStatus>("loading")
   const [courses, setCourses] = useState<Course[]>([])
   const [selectedCourse, setSelectedCourse] = useState<string | null>(null)
   const [items, setItems] = useState<CourseWorkWithSubmission[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  // ── STEP 1: Ambil token dari URL setelah redirect OAuth ──
+  // Simpan token di ref agar authFetch selalu pakai nilai terbaru
+  // tanpa perlu token masuk ke dependency array effect
+  const tokenRef = useRef<string | null>(null)
+
+  // Logout — bersihkan semua state & storage
+  const logout = useCallback((reason?: string) => {
+    tokenStorage.clear()
+    tokenRef.current = null
+    setAuthStatus("unauthenticated")
+    setCourses([])
+    setItems([])
+    setSelectedCourse(null)
+    if (reason) setError(reason)
+  }, [])
+
+  // ── 1. Ambil token dari URL (callback dari Google OAuth) atau localStorage ──
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search)
-    const token = params.get("token")
-    if (token) {
-      localStorage.setItem("token", token)
-      // Hapus token dari URL supaya tidak kelihatan di address bar
-      window.history.replaceState({}, "", window.location.pathname)
+    const url = new URL(window.location.href)
+    const tokenFromUrl = url.searchParams.get("token")
+
+    if (tokenFromUrl) {
+      // Bersihkan token dari URL sebelum validasi
+      window.history.replaceState({}, document.title, "/")
+      tokenStorage.set(tokenFromUrl)
+      tokenRef.current = tokenFromUrl
+    } else {
+      tokenRef.current = tokenStorage.get()
     }
-  }, [])
 
-  // ── STEP 2: Cek status login via /auth/me ──
-  useEffect(() => {
-    authFetch(`${import.meta.env.VITE_BACKEND_URL}/auth/me`)
-      .then((r) => r.json())
-      .then((d) => setLoggedIn(d.loggedIn))
-      .catch(() => setLoggedIn(false))
-  }, [])
+    // ── 2. Validasi token ke /auth/me ──
+    // Jika tidak ada token sama sekali, langsung ke halaman login
+    if (!tokenRef.current) {
+      setAuthStatus("unauthenticated")
+      return
+    }
 
-  // ── STEP 3: Load daftar courses setelah login ──
+    // Ada token → verifikasi ke backend
+    fetch(`${import.meta.env.VITE_BACKEND_URL}/auth/me`, {
+      headers: { Authorization: `Bearer ${tokenRef.current}` },
+    })
+      .then(async (res) => {
+        if (res.status === 401) {
+          logout("Sesi berakhir, silakan login kembali.")
+          return
+        }
+        const data = await res.json()
+        if (!data.loggedIn) {
+          logout()
+          return
+        }
+        setAuthStatus("authenticated")
+      })
+      .catch(() => {
+        // Jika network error saat validasi, anggap token masih valid
+        // agar user tidak dipaksa logout karena masalah koneksi sementara
+        setAuthStatus("authenticated")
+      })
+  }, [logout])
+
+  // ── 3. Load courses setelah status authenticated ──
   useEffect(() => {
-    console.log("loggedIn: ", loggedIn)
-    if (!loggedIn) return
-    authFetch(`${import.meta.env.VITE_BACKEND_URL}/classroom/courses`)
+    if (authStatus !== "authenticated" || !tokenRef.current) return
+
+    authFetch(`${import.meta.env.VITE_BACKEND_URL}/classroom/courses`, tokenRef.current)
       .then((r) => r.json())
       .then((d) => setCourses(d.data ?? []))
-  }, [loggedIn])
+      .catch((e) => {
+        if (e instanceof UnauthorizedError) logout("Sesi berakhir, silakan login kembali.")
+      })
+  }, [authStatus, logout])
 
-  // Load submissions ketika course dipilih
+  // ── 4. Load submissions saat course dipilih ──
   const loadSubmissions = async (courseId: string) => {
+    if (!tokenRef.current) return
+
     setSelectedCourse(courseId)
     setLoading(true)
     setError(null)
+
     try {
       const res = await authFetch(
-        `${import.meta.env.VITE_BACKEND_URL}/classroom/courses/${courseId}/submissions`
+        `${import.meta.env.VITE_BACKEND_URL}/classroom/courses/${courseId}/submissions`,
+        tokenRef.current
       )
       const d = await res.json()
       if (d.error) throw new Error(d.error)
       setItems(d.data ?? [])
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Terjadi error")
+    } catch (e) {
+      if (e instanceof UnauthorizedError) {
+        logout("Sesi berakhir, silakan login kembali.")
+      } else {
+        setError(e instanceof Error ? e.message : "Terjadi error")
+      }
     } finally {
       setLoading(false)
     }
@@ -250,17 +313,9 @@ export default function App() {
     window.location.href = `${import.meta.env.VITE_BACKEND_URL}/auth/login`
   }
 
-  const handleLogout = async () => {
-    localStorage.removeItem("token")
-    setLoggedIn(false)
-    setCourses([])
-    setItems([])
-    setSelectedCourse(null)
-  }
-
   // ── Render ──
 
-  if (loggedIn === null) {
+  if (authStatus === "loading") {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <p className="text-muted-foreground">Memuat...</p>
@@ -268,11 +323,14 @@ export default function App() {
     )
   }
 
-  if (!loggedIn) {
+  if (authStatus === "unauthenticated") {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen gap-4">
         <h1 className="text-2xl font-bold">Google Classroom Viewer</h1>
         <p className="text-muted-foreground">Login dengan akun Google kampus kamu</p>
+        {error && (
+          <p className="text-sm text-destructive">{error}</p>
+        )}
         <Button onClick={handleLogin} size="lg">
           🎓 Login dengan Google
         </Button>
@@ -282,14 +340,11 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-background p-6">
-
-      {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold">📚 Google Classroom Viewer</h1>
-        <Button variant="outline" onClick={handleLogout}>Logout</Button>
+        <Button variant="outline" onClick={() => logout()}>Logout</Button>
       </div>
 
-      {/* Pilih Course */}
       <div className="mb-6">
         <p className="text-sm font-semibold text-muted-foreground mb-2">PILIH MATA KULIAH</p>
         <div className="flex flex-wrap gap-2">
@@ -312,7 +367,6 @@ export default function App() {
 
       <Separator className="mb-6" />
 
-      {/* Status / error */}
       {error && (
         <div className="mb-4 p-3 rounded bg-destructive/10 text-destructive text-sm">{error}</div>
       )}
@@ -321,7 +375,6 @@ export default function App() {
         <div className="text-center py-12 text-muted-foreground">Mengambil data tugas...</div>
       )}
 
-      {/* Grid tugas */}
       {!loading && items.length > 0 && (
         <>
           <p className="text-sm text-muted-foreground mb-4">{items.length} tugas ditemukan</p>
@@ -334,9 +387,10 @@ export default function App() {
       )}
 
       {!loading && selectedCourse && items.length === 0 && (
-        <div className="text-center py-12 text-muted-foreground">Tidak ada tugas di mata kuliah ini.</div>
+        <div className="text-center py-12 text-muted-foreground">
+          Tidak ada tugas di mata kuliah ini.
+        </div>
       )}
-
     </div>
   )
 }

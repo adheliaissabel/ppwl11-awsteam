@@ -17,6 +17,9 @@ export const handler = async (event: any) => {
   }
 
   // DEBUG ENV
+  console.log("[ENV] GOOGLE_CLIENT_ID:", process.env.GOOGLE_CLIENT_ID);
+  console.log("[ENV] GOOGLE_CLIENT_SECRET:", process.env.GOOGLE_CLIENT_SECRET);
+  console.log("[ENV] GOOGLE_REDIRECT_URI:", process.env.GOOGLE_REDIRECT_URI);
   console.log("[DATABASE_URL]:", process.env.DATABASE_URL);
   console.log("[FRONTEND_URL] env:", process.env.FRONTEND_URL);
   console.log("[API_KEY] env:", process.env.API_KEY);
