@@ -2,6 +2,8 @@
 
 To install dependencies:
 
+Link canva 
+https://canva.link/zt5n0he0vl939nl 
 ```bash
 bun install
 ```
