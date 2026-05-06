@@ -8,6 +8,21 @@ import { Separator } from "@/components/ui/separator"
 import { ScrollArea } from "@/components/ui/scroll-area"
 
 // ─────────────────────────────────────────────
+// Helper: fetch dengan Authorization header
+// ─────────────────────────────────────────────
+
+const authFetch = (url: string, options?: RequestInit) => {
+  const token = localStorage.getItem("token")
+  return fetch(url, {
+    ...options,
+    headers: {
+      ...options?.headers,
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+  })
+}
+
+// ─────────────────────────────────────────────
 // Helpers
 // ─────────────────────────────────────────────
 
@@ -94,26 +109,18 @@ function CourseWorkCard({ item }: { item: CourseWorkWithSubmission }) {
 
       <Separator className="shrink-0" />
 
-      {/*
-    ScrollArea membungkus seluruh body — card tidak akan
-    tumbuh melebihi tinggi container grid-nya.
-    Hapus ScrollArea kalau kamu tidak pakai fixed-height grid.
-  */}
       <ScrollArea className="flex-1 min-h-0">
         <CardContent className="flex flex-col gap-3 pt-3 pb-4">
 
-          {/* Deskripsi tugas */}
           {courseWork.description && (
             <div className="flex flex-col gap-1">
               <p className="text-xs font-semibold text-muted-foreground">DESKRIPSI</p>
-              {/* line-clamp-4: potong deskripsi panjang, tidak mendorong elemen lain */}
               <p className="text-sm text-foreground whitespace-pre-wrap wrap-break-word line-clamp-4">
                 {courseWork.description}
               </p>
             </div>
           )}
 
-          {/* Lampiran soal */}
           {courseWork.materials && courseWork.materials.length > 0 && (
             <div className="flex flex-col gap-1">
               <p className="text-xs font-semibold text-muted-foreground">LAMPIRAN TUGAS</p>
@@ -133,7 +140,6 @@ function CourseWorkCard({ item }: { item: CourseWorkWithSubmission }) {
             </div>
           )}
 
-          {/* Skor */}
           {submission && (
             <div className="flex items-center gap-2 shrink-0">
               <p className="text-xs font-semibold text-muted-foreground shrink-0">SKOR</p>
@@ -147,7 +153,6 @@ function CourseWorkCard({ item }: { item: CourseWorkWithSubmission }) {
             </div>
           )}
 
-          {/* Lampiran submisi mahasiswa */}
           {attachments.length > 0 && (
             <div className="flex flex-col gap-1">
               <p className="text-xs font-semibold text-muted-foreground">LAMPIRAN SUBMISI KAMU</p>
@@ -159,18 +164,15 @@ function CourseWorkCard({ item }: { item: CourseWorkWithSubmission }) {
             </div>
           )}
 
-          {/* Short answer */}
           {submission?.shortAnswerSubmission?.answer && (
             <div className="flex flex-col gap-1">
               <p className="text-xs font-semibold text-muted-foreground">JAWABAN SINGKATMU</p>
-              {/* break-words: cegah teks panjang tanpa spasi meluber keluar card */}
               <p className="text-sm italic wrap-break-word">
                 "{submission.shortAnswerSubmission.answer}"
               </p>
             </div>
           )}
 
-          {/* Late badge — selalu paling bawah, diberi padding atas */}
           {submission?.late && (
             <div className="pt-1">
               <Badge variant="destructive" className="w-fit text-xs">
@@ -197,19 +199,30 @@ export default function App() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  // Cek status login
+  // ── STEP 1: Ambil token dari URL setelah redirect OAuth ──
   useEffect(() => {
-    fetch(`${import.meta.env.VITE_BACKEND_URL}/auth/me`, { credentials: "include" })
+    const params = new URLSearchParams(window.location.search)
+    const token = params.get("token")
+    if (token) {
+      localStorage.setItem("token", token)
+      // Hapus token dari URL supaya tidak kelihatan di address bar
+      window.history.replaceState({}, "", window.location.pathname)
+    }
+  }, [])
+
+  // ── STEP 2: Cek status login via /auth/me ──
+  useEffect(() => {
+    authFetch(`${import.meta.env.VITE_BACKEND_URL}/auth/me`)
       .then((r) => r.json())
       .then((d) => setLoggedIn(d.loggedIn))
       .catch(() => setLoggedIn(false))
   }, [])
 
-  // Load daftar courses setelah login
+  // ── STEP 3: Load daftar courses setelah login ──
   useEffect(() => {
     console.log("loggedIn: ", loggedIn)
     if (!loggedIn) return
-    fetch(`${import.meta.env.VITE_BACKEND_URL}/classroom/courses`, { credentials: "include" })
+    authFetch(`${import.meta.env.VITE_BACKEND_URL}/classroom/courses`)
       .then((r) => r.json())
       .then((d) => setCourses(d.data ?? []))
   }, [loggedIn])
@@ -220,9 +233,8 @@ export default function App() {
     setLoading(true)
     setError(null)
     try {
-      const res = await fetch(
-        `${import.meta.env.VITE_BACKEND_URL}/classroom/courses/${courseId}/submissions`,
-        { credentials: "include" }
+      const res = await authFetch(
+        `${import.meta.env.VITE_BACKEND_URL}/classroom/courses/${courseId}/submissions`
       )
       const d = await res.json()
       if (d.error) throw new Error(d.error)
@@ -239,7 +251,7 @@ export default function App() {
   }
 
   const handleLogout = async () => {
-    await fetch(`${import.meta.env.VITE_BACKEND_URL}/auth/logout`, { method: "POST", credentials: "include" })
+    localStorage.removeItem("token")
     setLoggedIn(false)
     setCourses([])
     setItems([])
