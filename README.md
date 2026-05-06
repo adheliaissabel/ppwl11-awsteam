@@ -15,7 +15,7 @@ bun install
 | Adhelia Issabel                   | Budget & Cost                             |
 | Chalsyta Setyani                  | RDS Database                              |
 | Adhelia Issabel & Chalsyta Setyani| Lambda Backend                            |
-| Iqlima Nurain                     | S3 + CloudFront Frontend, Test & Docs     |
+| Adhelia Issabel & Chalsyta Setyani| S3 + CloudFront Frontend, Test & Docs     |
 >>>>>>> 8f1645db5ce98351d00e0e5ebfe9a5ab8fa6c6e7
 
 ---
